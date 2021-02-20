@@ -1,3 +1,4 @@
+const uuid = require('uuid-v4');
 const { admin, db } = require('../util/admin');
 const config = require('../util/config');
 
@@ -128,6 +129,7 @@ exports.uploadProfilePhoto = (req, res) => {
     deleteImage(imageFileName);
 
     busboy.on('finish', () => {
+        const uui = uuid();
         admin
             .storage()
             .bucket()
@@ -135,14 +137,16 @@ exports.uploadProfilePhoto = (req, res) => {
                 resumable: false,
                 metadata: {
                     metadata: {
-                        contentType: imageToBeUploaded.mimetype,
+                        // This line is very important. It's to create a download token.
+                        firebaseStorageDownloadTokens: uui
                     },
-                    firebaseStorageDownloadTokens: uuid()
+                    contentType: 'image/png',
+                    cacheControl: 'public, max-age=31536000',
                 }
             })
-            .get
-            .then(() => {
-				const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${config.storageBucket}/o/${imageFileName}?alt=media`;
+            .then((data) => {
+                const token = uui;
+                const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${config.storageBucket}/o/${imageFileName}?alt=media&token=${token}`;
 				return db.doc(`/users/${req.user.username}`).update({
 					imageUrl
 				});
